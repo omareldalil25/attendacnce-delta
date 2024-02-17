@@ -68,8 +68,14 @@ def log_attendance(recognized_names):
     except pd.errors.EmptyDataError:
         attendance_df = pd.DataFrame(columns=["Name", "Time", "Present"])
 
+    new_data = {"Name": [], "Time": [], "Present": []}
     for name in recognized_names:
-        attendance_df = attendance_df.append({"Name": name, "Time": current_time, "Present": 1}, ignore_index=True)
+        new_data["Name"].append(name)
+        new_data["Time"].append(current_time)
+        new_data["Present"].append(1)
+
+    new_rows = pd.DataFrame(new_data)
+    attendance_df = pd.concat([attendance_df, new_rows], ignore_index=True)
 
     attendance_df.to_csv(attendance_file, index=False)
 
@@ -143,28 +149,32 @@ def main():
             # Capture a single frame
             ret, frame = cap.read()
 
+            # Check if the frame is not empty
+            if ret:
+                # Save the captured frame to a temporary location
+                temp_path = 'temp_image.jpg'
+                cv2.imwrite(temp_path, frame)
+
+                # Call your existing face recognition function
+                result_image, accuracy = recognize_faces_in_image(temp_path)
+
+                # Get the recognized names
+                recognized_names = get_recognized_names(result_image, temp_path)
+
+                # Log the attendance
+                log_attendance(recognized_names)
+
+                # Convert result image to base64-encoded string
+                result_image_base64 = base64.b64encode(cv2.imencode('.jpg', result_image)[1]).decode()
+
+                # Display the result and accuracy
+                st.image(result_image, caption=f"Recognition Result - Accuracy: {accuracy}", use_column_width=True)
+                st.write(f"Recognized Names: {', '.join(recognized_names)}")
+            else:
+                st.write("Error: Unable to capture frame from the camera.")
+
             # Release the camera
             cap.release()
-
-            # Save the captured frame to a temporary location
-            temp_path = 'temp_image.jpg'
-            cv2.imwrite(temp_path, frame)
-
-            # Call your existing face recognition function
-            result_image, accuracy = recognize_faces_in_image(temp_path)
-
-            # Get the recognized names
-            recognized_names = get_recognized_names(result_image, temp_path)
-
-            # Log the attendance
-            log_attendance(recognized_names)
-
-            # Convert result image to base64-encoded string
-            result_image_base64 = base64.b64encode(cv2.imencode('.jpg', result_image)[1]).decode()
-
-            # Display the result and accuracy
-            st.image(result_image, caption=f"Recognition Result - Accuracy: {accuracy}", use_column_width=True)
-            st.write(f"Recognized Names: {', '.join(recognized_names)}")
 
     elif choice == "Download Attendance":
         st.subheader("Download Attendance")
